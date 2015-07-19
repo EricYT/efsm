@@ -115,6 +115,8 @@ run() ->
   fsm:transition(Machine, 'e7', " f => b "),
   fsm:transition(Machine, 'e3', " b => d "),
   fsm:transition(Machine, 'e',  " d => n "),
+
+
   ok.
 
 a2b1(A, Args, CurrentState, Event, NextState, Context) ->
