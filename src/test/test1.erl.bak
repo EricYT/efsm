@@ -1,0 +1,90 @@
+-module(test1).
+
+-compile(export_all).
+
+-include("fsm.hrl").
+
+%%-record(transition, {
+%%    current_state         :: state(),
+%%    event                 :: event(),
+%%    to_state              :: state(),
+%%    pre_listerners        :: pre_listerners(),
+%%    post_listerners       :: post_listerners()
+%%  }). 
+
+run() ->
+  {ok, _} = application:ensure_all_started(fsm),
+  Transitions = [
+    #transition{
+      current_state = 'a',
+      event = 'e1',
+      to_state = 'b',
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    },
+    #transition{
+      current_state = 'a',
+      event = 'e2',
+      to_state = 'c',
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    },
+    #transition{
+      current_state = 'b',
+      event = 'e3',
+      to_state = 'd',
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    },
+    #transition{
+      current_state = 'c',
+      event = 'e4',
+      to_state = 'e',
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    },
+    #transition{
+      current_state = 'c',
+      event = 'e5',
+      to_state = 'b',
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    },
+    #transition{
+      current_state = 'd',
+      event = undefined,
+      to_state = undefined,
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    },
+    #transition{
+      current_state = 'e',
+      event = undefined,
+      to_state = undefined,
+      pre_listerners = [{test, a2b1, []}],
+      post_listerners = [{test, a2b2, []}]
+    }
+    ],
+    {ok, Machine} = fsm:start_link(test, Transitions, 'a'),
+
+    %% a => b => d
+%%  fsm:transition(Machine, 'e1', " a => b "),
+%%  fsm:transition(Machine, 'e3', " b => d "),
+%%  fsm:transition(Machine, 'e4', " d => n "),
+
+    %% a => c => e
+  fsm:transition(Machine, 'e2', " a => c "),
+  fsm:transition(Machine, 'e5', " c => b "),
+  fsm:transition(Machine, 'e3', " b => d "),
+  fsm:transition(Machine, 'e',  " d => n "),
+  ok.
+
+a2b1(A, Args, CurrentState, Event, NextState) ->
+  lager:debug("(test) machine pre :~p ====(event:~p)======> ~p", [CurrentState, Event, NextState]),
+  ok.
+
+a2b2(A, Args, CurrentState, Event, NextState) ->
+  lager:debug("(test) post machine "),
+  ok.
+
+

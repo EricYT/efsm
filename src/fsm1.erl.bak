@@ -1,0 +1,160 @@
+-module(fsm1).
+-behaviour(gen_server).
+
+-include("fsm.hrl").
+
+%%-record(state_entry, {
+%%
+%%  }). 
+%%
+%%%% Fsm Transition                                                                                                                                                                                                                             
+
+-record(state, {
+    name :: atom(),
+    current_state :: transition(),
+    transitions :: [transition(), ...],
+    context :: map(),
+    is_over :: boolean()
+}).
+
+%% ------------------------------------------------------------------
+%% API Function Exports
+%% ------------------------------------------------------------------
+
+-export([start_link/3]).
+-compile(export_all).
+
+%% ------------------------------------------------------------------
+%% gen_server Function Exports
+%% ------------------------------------------------------------------
+
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+    terminate/2, code_change/3]).
+
+%% ------------------------------------------------------------------
+%% API Function Definitions
+%% ------------------------------------------------------------------
+
+start_link(StateMachineName, Transitions, StartState) ->
+  gen_server:start_link({local, StateMachineName}, ?MODULE, [StateMachineName, Transitions, StartState], []).
+
+transition(StateMachine, Event, Args) ->
+  gen_server:call(StateMachine, {transition, Event, Args}).
+
+add_transition(StateMachine, Transition) ->
+  gen_server:call(StateMachine, {add_transition, Transition}).
+
+del_transition(StateMachine, StateName) ->
+  gen_server:call(StateMachine, {del_transition, StateName}).
+
+%% ------------------------------------------------------------------
+%% gen_server Function Definitions
+%% ------------------------------------------------------------------
+
+init([StateMachineName, Transitions, StartState]) ->
+  %% Initialize the state machine
+  lager:debug("(1)Machine: ~p Transitions:~p StartState:~p", [StateMachineName, Transitions, StartState]),
+  State = #state{
+    name          = StateMachineName,
+    current_state = StartState,
+    transitions   = Transitions,
+    context       = maps:new()
+  },
+  {ok, State}.
+
+handle_call({transition, Event, Args}, _From, State) ->
+  lager:debug("(start)transition event:~p args:~p state:~p", [Event, Args, State]),
+  {Reply, NewState} = transition_to(Event, Args, State),
+  lager:debug("(end)transition event end reply:~p new_state:~p", [Reply, NewState]),
+  {reply, Reply, NewState};
+handle_call(_Request, _From, State) ->
+  {reply, ok, State}.
+
+handle_cast(_Msg, State) ->
+  {noreply, State}.
+
+handle_info(_Info, State) ->
+  {noreply, State}.
+
+terminate(_Reason, _State) ->
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+%% ------------------------------------------------------------------
+%% Internal Function Definitions
+%% ------------------------------------------------------------------
+%%-record(transition, {
+%%    current_state         :: state(),
+%%    event                 :: event(),
+%%    to_state              :: state(),
+%%    pre_listerners        :: pre_listerners(),
+%%    post_listerners       :: post_listerners()
+%%  }). 
+-spec transition_to(event(), Args::[any(), ...], State::tuple()) -> {{ok, true}|{error, Reason::any()}, NewState::tuple()}.
+transition_to(Event, Args, State) ->
+  lager:debug("(3)transition_to in"),
+  #state{
+    current_state=CurrentState,
+    transitions  =Transitions
+  }=State,
+  {Result, NewState} =
+  case get_next_state(CurrentState, Event, Transitions) of
+    #transition{
+      to_state       = NextState,
+      pre_listerners = PreListerners,
+      post_listerners= PostListerners
+    }=_Transition ->
+      lager:debug("(4)transition_to get next state:~p", [NextState]),
+      do_pre_listerners(PreListerners, CurrentState, Event, NextState, Args),
+      case maybe_over(NextState, Transitions) of
+        false ->
+          lager:debug("(5)state machine is over"),
+          {{ok, true}, NextState};
+        true ->
+          lager:debug("(6)state machine is not over"),
+          do_post_listerners(PostListerners, CurrentState, Event, NextState, Args),
+          {{ok, true}, NextState}
+      end;
+    undefined ->
+      {{error, event_error}, CurrentState}
+  end,
+  {Result, State#state{ current_state=NewState }}.
+
+-spec get_next_state(state(), event(), transitions()) -> transition() | undefined.
+get_next_state(CurrentState, Event, [#transition{current_state=CurrentState, event=Event}=NextState|_]) -> NextState;
+get_next_state(CurrentState, Event, [_|Tail]) -> get_next_state(CurrentState, Event, Tail);
+get_next_state(_, _, []) -> undefined.
+
+-spec maybe_over(state(), transitions()) -> boolean().
+maybe_over(State, Transitions) ->
+  StateTransitions = [ Transition || #transition{current_state=State_, to_state=ToState}=Transition<-Transitions, State_ =:= State, ToState =/= undefined ],
+  lager:debug("(4.1)is over StateTransitions:~p", [StateTransitions]),
+  StateTransitions =/= [].
+
+do_pre_listerners([{M, F, A}|Tail], CurrentState, Event, NextState, Args) ->
+  case erlang:function_exported(M, F, 5) of
+    true ->
+      M:F(A, Args, CurrentState, Event, NextState),
+      do_pre_listerners(Tail, CurrentState, Event, NextState, Args);
+    false ->
+      do_pre_listerners(Tail, CurrentState, Event, NextState, Args)
+  end;
+do_pre_listerners([], _, _, _, _) -> ok.
+
+do_post_listerners([{M, F, A}|Tail], CurrentState, Event, NextState, Args) ->
+  case erlang:function_exported(M, F, 5) of
+    true ->
+      M:F(A, Args, CurrentState, Event, NextState),
+      do_post_listerners(Tail, CurrentState, Event, NextState, Args);
+    false ->
+      do_post_listerners(Tail, CurrentState, Event, NextState, Args)
+  end;
+do_post_listerners([], _, _, _, _) -> ok.
+
+
+
+
+
+

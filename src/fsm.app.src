@@ -1,0 +1,13 @@
+{application, fsm,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  lager
+                 ]},
+  {mod, { fsm_app, []}},
+  {env, []}
+ ]}.
