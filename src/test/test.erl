@@ -111,11 +111,16 @@ run() ->
   FromStates = fsm:get_from_states(Machine),
   lager:debug("(test) get get_from_states:~p", [FromStates]),
 
+  IsOver1 = fsm:is_over(Machine),
+  lager:debug("(test1---------------------) get is_over:~p", [IsOver1]),
+
   fsm:transition(Machine, 'e6', " b => f "),
   fsm:transition(Machine, 'e7', " f => b "),
   fsm:transition(Machine, 'e3', " b => d "),
   fsm:transition(Machine, 'e',  " d => n "),
 
+  IsOver = fsm:is_over(Machine),
+  lager:debug("(test2---------------------) get is_over:~p", [IsOver]),
 
   ok.
 

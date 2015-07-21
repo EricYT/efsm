@@ -11,13 +11,13 @@
 %% Fsm entry
 -record(state_entry, {
     state                 :: state(),
-    transitions           :: transitions()
+    transitions=[]        :: transitions()
   }).
 
 %% Fsm Transition
 -record(transition, {
     event                 :: event(),
     to_state              :: state(),
-    pre_listerners        :: pre_listerners(),
-    post_listerners       :: post_listerners()
+    pre_listerners=[]     :: pre_listerners(),
+    post_listerners=[]    :: post_listerners()
   }).

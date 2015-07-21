@@ -46,6 +46,9 @@ add_transition(StateMachine, StateName, Transition) ->
 del_transition(StateMachine, StateName) ->
   gen_server:call(StateMachine, {del_transition, StateName}).
 
+is_over(StateMachine) ->
+  gen_server:call(StateMachine, {is_over}).
+
 get_current_state(StateMachine) ->
   gen_server:call(StateMachine, {get_current_state}).
 
@@ -93,6 +96,10 @@ handle_call({get_current_state}, _From, State) ->
 
 handle_call({get_next_state, Event}, _From, State) ->
   Reply = get_next_state_(Event, State),
+  {reply, Reply, State};
+
+handle_call({is_over}, _From, State) ->
+  Reply = is_over_(State),
   {reply, Reply, State};
 
 handle_call({get_from_states}, _From, State) ->
@@ -297,4 +304,9 @@ get_transition(Event, Transitions) ->
     Transition -> Transition
   end.
 
-
+is_over_(#state{current_state=CurrentState, state_entries=StateEntries}) ->
+  case get_state_entry(CurrentState, StateEntries) of
+    undefined -> true;
+    #state_entry{transitions=[]} -> true;
+    _ -> false
+  end.
